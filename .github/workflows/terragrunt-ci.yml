@@ -1,4 +1,4 @@
-name: 🟪'Terragrunt CI'
+name: 🟪 Terragrunt CI
 
 on:
     workflow_dispatch:
