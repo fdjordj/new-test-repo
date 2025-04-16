@@ -1,8 +1,5 @@
 name: 🚀'Create S3 Bucket'
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
