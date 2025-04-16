@@ -1,15 +1,3 @@
-variable "name" {
-  type = string
-}
-
-variable "environment" {
-  type = string
-}
-
-variable "instance_type" {
-  type = string
-}
-
 resource "aws_instance" "ec2" {
   ami           = "ami-0b0ea68c435eb488d" 
   instance_type = var.instance_type
