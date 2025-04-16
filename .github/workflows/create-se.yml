@@ -23,4 +23,4 @@ jobs:
 
           - name: Create S3 Bucket
             run: |
-              aws s3api create-bucket --bucket my-unique-s3-bucket-name --region us-east-1
+              aws s3api create-bucket --bucket unique-name-for-s3-dev --region us-east-1
