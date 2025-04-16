@@ -1,0 +1,90 @@
+name: 🟪'Terragrunt CI'
+
+on:
+    workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  Terragrunt:
+    name: 'Terragrunt'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Set Terraform variables
+      run: |
+          echo "TF_VAR_google_client_id=$GOOGLE_COGNITO_IDP_GOOGLE_CLIENT_ID" >> $GITHUB_ENV
+          echo "TF_VAR_google_client_secret=$GOOGLE_COGNITO_IDP_GOOGLE_CLIENT_SECRET" >> $GITHUB_ENV
+  
+    - name: Setup Terraform v1.9.5
+      uses: hashicorp/setup-terraform@v1
+      with:
+          terraform_version: 1.9.5
+          terraform_wrapper: false
+  
+    - name: Setup Terragrunt v0.38.4
+      run: |
+          sudo wget -q -O /usr/local/bin/terragrunt "https://github.com/gruntwork-io/terragrunt/releases/download/v0.38.4/terragrunt_linux_amd64"
+          sudo chmod +x /usr/local/bin/terragrunt
+          terragrunt -v
+  
+    - name: Generate arguments for Terragrunt
+      id: generate
+      run: |
+          chmod +x working-dirs.sh
+          ./working-dirs.sh >> $GITHUB_OUTPUT
+          - name: Clear Terraform and Terragrunt Cache
+          run: |
+            # Remove any existing cached provider or lock files to avoid conflicts
+            find . -name .terraform.lock.hcl -exec rm -rf {} \;
+            find . -name .terragrunt -type d -exec rm -rf {} \;
+            find . -name .terraform -type d -exec rm -rf {} \;
+    
+    - name: Terragrunt Plan
+      if: steps.generate.outputs.tg_arguments != '--terragrunt-strict-include'
+      id: terragrunt-plan
+      env:
+            ARGUMENT: ${{ steps.generate.outputs.tg_arguments }}
+      run: |
+            mkdir -p $HOME/.terraform.d/plugin-cache
+            export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
+            
+            terragrunt init
+            terragrunt providers lock -platform=linux_amd64
+    
+            git config --global url."https://oauth2:${{secrets.TERRAGRUNT_TOKEN}}@github.com".insteadOf https://github.com
+            
+            terragrunt run-all plan --terragrunt-non-interactive $ARGUMENT --terragrunt-parallelism 1 | tee full_plan.out
+    
+            grep -E "^Plan:|^No changes.|^Changes to Outputs:" full_plan.out > summary.out || true
+    
+            # Count total resources to be added, changed, and destroyed
+            plan_add=$(grep "Plan:" full_plan.out | grep -Eo "[0-9]+ to add" | awk '{sum += $1} END {print sum}')
+            plan_change=$(grep "Plan:" full_plan.out | grep -Eo "[0-9]+ to change" | awk '{sum += $1} END {print sum}')
+            plan_destroy=$(grep "Plan:" full_plan.out | grep -Eo "[0-9]+ to destroy" | awk '{sum += $1} END {print sum}')
+    
+            # Fallback to 0 if the result is empty
+            plan_add=${plan_add:-0}
+            plan_change=${plan_change:-0}
+            plan_destroy=${plan_destroy:-0}
+    
+            echo "Total resources to add: $plan_add"
+            echo "Total resources to change: $plan_change"
+            echo "Total resources to destroy: $plan_destroy"
+    
+            echo "plan_add=$plan_add" >> $GITHUB_ENV
+            echo "plan_change=$plan_change" >> $GITHUB_ENV
+            echo "plan_destroy=$plan_destroy" >> $GITHUB_ENV
+    
