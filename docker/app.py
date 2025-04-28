@@ -28,6 +28,10 @@ def create_database_and_table():
     conn.commit()
     conn.close()
 
+@app.before_first_request
+def initialize_database():
+    create_database_and_table()
+
 def make_celery(app):
     celery = Celery(
         app.import_name,
@@ -120,4 +124,5 @@ def obris():
     '''
 
 if __name__ == '__main__':
+    create_database_and_table()
     app.run(debug=True, host='0.0.0.0')
