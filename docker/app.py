@@ -14,6 +14,20 @@ def get_db_connection():
     )
     return conn
 
+def create_database_and_table():
+    """Funkcija za kreiranje baze podataka i tabele 'items'."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS items (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL
+        );
+    ''')
+    conn.commit()
+    conn.close()
+
 def make_celery(app):
     celery = Celery(
         app.import_name,
