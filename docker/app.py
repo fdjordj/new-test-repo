@@ -28,8 +28,9 @@ def create_database_and_table():
     conn.commit()
     conn.close()
 
-@app.before_first_request
+@app.before_request
 def initialize_database():
+    """Inicijalizuje bazu podataka pre svakog zahteva."""
     create_database_and_table()
 
 def make_celery(app):
@@ -41,7 +42,6 @@ def make_celery(app):
     celery.conf.update(app.config)
     return celery
 
-# Flask konfiguracija za Celery
 app.config['CELERY_BROKER_URL'] = 'redis://redis:6379/0'
 app.config['CELERY_RESULT_BACKEND'] = 'redis://redis:6379/0'
 
@@ -49,6 +49,7 @@ celery = make_celery(app)
 
 @app.route('/')
 def home():
+    create_database_and_table()
     return '''
         <html>
             <body>
